@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Einfach-Termin — Praxis Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=Fraunces:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+    /* ── ЗАДАЧА 29: Firebase Sync ───────────────────────────────── */
+    .firebase-card { border: 2px solid #FF6B35; }
+    .firebase-badge {
+        display: inline-flex; align-items: center;
+        padding: 4px 12px; border-radius: 999px;
+        font-size: .72rem; font-weight: 700;
+        transition: background .3s, color .3s;
+    }
+    .firebase-badge.online  { background: #edf7f0; color: var(--success); border: 1px solid var(--success); }
+    .firebase-badge.pending { background: #fff8e1; color: var(--warning); border: 1px solid var(--warning); }
+    .firebase-badge.offline { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
+
+    .firebase-toggle-row {
+        display: flex; align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        background: var(--bg);
+        border-radius: var(--r-sm);
+        border: 1px solid var(--border);
+    }
+    .firebase-toggle-label { font-size: .88rem; font-weight: 600; color: var(--text); }
+
+    /* Toggle Switch */
+    .toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+        position: absolute; cursor: pointer;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: var(--border); border-radius: 24px;
+        transition: .25s;
+    }
+    .toggle-slider::before {
+        content: ''; position: absolute;
+        height: 18px; width: 18px;
+        left: 3px; bottom: 3px;
+        background: #fff; border-radius: 50%;
+        transition: .25s;
+        box-shadow: 0 1px 4px rgba(0,0,0,.2);
+    }
+    .toggle-switch input:checked + .toggle-slider { background: #FF6B35; }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+    /* Sync Spinner */
+    @keyframes fbSpin { to { transform: rotate(360deg); } }
+    .fb-spinner {
+        display: inline-block; width: 12px; height: 12px;
+        border: 2px solid currentColor; border-top-color: transparent;
+        border-radius: 50%; animation: fbSpin .7s linear infinite;
+        vertical-align: middle; margin-right: 5px;
+    }
+
+    /* ── ЗАДАЧА 22: Deep Audit Log ───────────────────────────────── */
+    .audit-item {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border);
+        font-size: .8rem;
+    }
+    .audit-item:last-child { border-bottom: none; }
+    .audit-item-left {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        flex: 1;
+        min-width: 0;
+    }
+    .audit-cat-icon {
+        font-size: 1rem;
+        flex-shrink: 0;
+        margin-top: 1px;
+        line-height: 1;
+    }
+    .audit-item-body {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+    }
+    .audit-message {
+        color: var(--text);
+        line-height: 1.45;
+        word-break: break-word;
+    }
+    .audit-item--error   .audit-message { color: var(--danger); }
+    .audit-item--warn    .audit-message { color: var(--warning); }
+    .audit-item--success .audit-message { color: var(--success); }
+    .audit-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 2px;
+    }
+    .audit-meta-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 1px 7px;
+        font-size: .67rem;
+        color: var(--text-muted);
+        font-family: monospace;
+    }
+    .audit-meta-key { color: var(--primary); font-weight: 700; margin-right: 2px; }
+    .audit-meta-key::after { content: ':'; }
+
+    /* ── ЗАДАЧА 21: Subscription Widget & Modal ─────────────────── */
+
+    /* Кнопка «Verlängern» внутри ow-card */
+    .ow-renew-btn {
+        margin-top: 10px;
+        background: linear-gradient(135deg, var(--primary), var(--lavender-deep));
+        color: #fff;
+        border: none;
+        border-radius: var(--r-sm);
+        padding: 7px 14px;
+        font-size: .75rem;
+        font-weight: 700;
+        cursor: pointer;
+        width: 100%;
+        text-align: center;
+        transition: opacity .15s, transform .12s;
+        font-family: 'DM Sans', sans-serif;
+        letter-spacing: .02em;
+    }
+    .ow-renew-btn:hover { opacity: .88; transform: translateY(-1px); }
+    .ow-card.ow-subscription.expired .ow-renew-btn {
+        background: linear-gradient(135deg, var(--danger), #c0392b);
+    }
+    .ow-card.ow-subscription.warn .ow-renew-btn {
+        background: linear-gradient(135deg, var(--warning), #e67e22);
+    }
+    .ow-card.ow-subscription.expired::before {
+        background: linear-gradient(90deg, var(--danger), #fc5c65);
+    }
+    .ow-card.ow-subscription.warn::before {
+        background: linear-gradient(90deg, var(--warning), #f7b731);
+    }
+    .ow-sub-plan {
+        font-size: 1.4rem !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* ── Subscription Modal ───────────────────────────────────── */
+    .sub-modal-box {
+        background: var(--card);
+        border-radius: var(--r);
+        box-shadow: 0 24px 80px rgba(44,27,105,.35);
+        width: 96%;
+        max-width: 760px;
+        max-height: 92vh;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+    }
+    .sub-modal-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        padding: 24px 28px 16px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+    }
+    .sub-modal-title {
+        font-family: 'Fraunces', serif;
+        font-size: 1.3rem;
+        font-weight: 900;
+        color: var(--text);
+    }
+    .sub-modal-subtitle {
+        font-size: .78rem;
+        color: var(--text-muted);
+        margin-top: 3px;
+    }
+    .sub-modal-close {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        width: 34px; height: 34px;
+        cursor: pointer;
+        font-size: 1rem;
+        color: var(--text);
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .sub-modal-current-status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 28px;
+        background: var(--primary-light);
+        font-size: .83rem;
+        color: var(--text);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+    }
+    .sub-modal-status-icon { font-size: 1.2rem; }
+
+    /* Сетка планов */
+    .sub-plans-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        padding: 22px 28px 14px;
+    }
+    @media (max-width: 680px) {
+        .sub-plans-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 420px) {
+        .sub-plans-grid { grid-template-columns: 1fr; }
+    }
+    .sub-plan-card {
+        border: 2px solid var(--border);
+        border-radius: var(--r);
+        padding: 16px 14px;
+        cursor: pointer;
+        transition: border-color .18s, box-shadow .18s, transform .15s;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        background: var(--card);
+    }
+    .sub-plan-card:hover {
+        border-color: var(--primary);
+        box-shadow: 0 4px 20px rgba(124,92,191,.15);
+        transform: translateY(-2px);
+    }
+    .sub-plan-card.selected {
+        border-color: var(--primary);
+        background: var(--primary-light);
+        box-shadow: 0 4px 24px rgba(124,92,191,.2);
+    }
+    .sub-plan-card.recommended {
+        border-color: var(--primary);
+    }
+    .sub-plan-card.current {
+        border-color: var(--success);
+    }
+    .sub-plan-ribbon {
+        position: absolute;
+        top: -1px; right: -1px;
+        background: var(--primary);
+        color: #fff;
+        font-size: .62rem;
+        font-weight: 700;
+        padding: 3px 9px;
+        border-radius: 0 var(--r) 0 var(--r-sm);
+        letter-spacing: .03em;
+    }
+    .sub-plan-ribbon.current-ribbon { background: var(--success); }
+    .sub-plan-icon {
+        width: 38px; height: 38px;
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.1rem;
+        font-weight: 900;
+        font-family: 'Fraunces', serif;
+    }
+    .sub-plan-name {
+        font-weight: 800;
+        font-size: .95rem;
+        font-family: 'Fraunces', serif;
+    }
+    .sub-plan-price {
+        font-size: .82rem;
+        font-weight: 700;
+        color: var(--text-muted);
+    }
+    .sub-plan-features {
+        list-style: none;
+        padding: 0; margin: 6px 0 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .sub-plan-features li {
+        font-size: .72rem;
+        color: var(--text-muted);
+        line-height: 1.4;
+    }
+
+    /* Дата продления */
+    .sub-modal-expiry-row {
+        padding: 0 28px 14px;
+        border-top: 1px solid var(--border);
+        padding-top: 16px;
+    }
+    .sub-modal-expiry-label {
+        font-size: .8rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        display: block;
+        margin-bottom: 8px;
+    }
+    .sub-modal-expiry-input {
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--r-sm);
+        font-size: .88rem;
+        font-family: 'DM Sans', sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        width: 180px;
+        margin-bottom: 8px;
+    }
+    .sub-modal-expiry-shortcuts {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    .sub-modal-expiry-shortcuts button {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 5px 12px;
+        font-size: .75rem;
+        font-weight: 600;
+        cursor: pointer;
+        color: var(--text);
+        font-family: 'DM Sans', sans-serif;
+        transition: background .15s;
+    }
+    .sub-modal-expiry-shortcuts button:hover { background: var(--primary-light); }
+
+    /* Footer */
+    .sub-modal-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 16px 28px 22px;
+        border-top: 1px solid var(--border);
+        flex-wrap: wrap;
+        flex-shrink: 0;
+    }
+    .sub-blurred {
+        filter: blur(5px);
+        user-select: none;
+        cursor: not-allowed;
+        color: var(--text-muted);
+        display: inline-block;
+        transition: filter .2s;
+        letter-spacing: .05em;
+    }
+    .sub-blurred:hover {
+        filter: blur(3px);
+    }
+    .sub-expired-banner {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        background: linear-gradient(135deg, #ff4d4d11, #ff000008);
+        border: 1px solid rgba(231,76,60,.35);
+        border-radius: var(--r);
+        padding: 14px 18px;
+        margin-bottom: 14px;
+        animation: slideDown .35s ease;
+    }
+    .sub-expired-banner.warn {
+        background: linear-gradient(135deg, #f39c1211, #e6750008);
+        border-color: rgba(243,156,18,.35);
+    }
+    .sub-banner-icon { font-size: 1.6rem; flex-shrink: 0; }
+    .sub-banner-text { flex: 1; font-size: .85rem; line-height: 1.5; }
+    .sub-banner-text strong { color: var(--danger); display: block; margin-bottom: 2px; }
+    .sub-expired-banner.warn .sub-banner-text strong { color: var(--warning); }
+    .sub-banner-btn {
+        background: var(--danger);
+        color: #fff;
+        border: none;
+        border-radius: var(--r-sm);
+        padding: 8px 16px;
+        font-size: .8rem;
+        font-weight: 700;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: opacity .15s;
+    }
+    .sub-banner-btn:hover { opacity: .85; }
+    .sub-expired-banner.warn .sub-banner-btn { background: var(--warning); }
+    @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-12px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+    </style>
+<body>
+<div id="toast-container"></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     AUTH SHELL (Login / Register) — shown when not logged in
+     ══════════════════════════════════════════════════════════ -->
+<div id="auth-shell" class="auth-shell" style="display:none;">
+    <header class="auth-header">
+        <div class="wrap nav">
+            <a class="logo" onclick="location.reload()">Einfach<span>-Termin</span><span class="admin-badge">PRAXIS</span></a>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <button class="btn-sm" onclick="toggleDark()" style="border-color:var(--primary);color:var(--primary);">🌓</button>
+            </div>
+        </div>
+    </header>
+    <main class="wrap">
+        <!-- ═══ LOGIN ═══ -->
+        <div id="page-login" class="page active">
+            <div style="max-width:420px;margin:60px auto;">
+                <div class="card">
+                    <h2 style="margin:0 0 6px;font-family:'Fraunces',serif;">Praxis-Login</h2>
+                    <p style="color:var(--text-muted);font-size:.88rem;margin-bottom:18px;">Verwalten Sie Ihr Team und Ihre Termine.</p>
+                    <div id="login-err" class="err"></div>
+                    <label>E-Mail</label><input type="email" id="login-email" placeholder="praxis@email.de">
+                    <label>Passwort</label><input type="password" id="login-pass" placeholder="••••••••">
+                    <button class="btn btn-main" onclick="handleLogin()">Anmelden</button>
+                    <div style="text-align:center;margin-top:12px;">
+                        <button class="btn-text" onclick="showAuthPage('page-register')">Neue Praxis registrieren →</button>
+                    </div>
+                    <div style="margin-top:16px;padding:12px;background:var(--primary-light);border-radius:var(--r-sm);font-size:.8rem;color:var(--text-muted);">
+                        <strong>Demo:</strong> sonne@demo.de / demo123 · nord@demo.de / demo123 · lavender@demo.de / demo123
+                    </div>
+                </div>
+                <div style="text-align:center;margin-top:12px;">
+                    <a href="index.html" style="color:var(--primary);font-size:.85rem;">← Zur Patientenansicht</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ REGISTER ═══ -->
+        <div id="page-register" class="page">
+            <div class="card" style="max-width:600px;margin:0 auto;">
+                <h2 style="margin:0 0 18px;font-family:'Fraunces',serif;">Neue Praxis registrieren</h2>
+                <div id="reg-err" class="err"></div>
+                <label>Praxisname *</label><input type="text" id="r-name" placeholder="Praxis Dr. med. Anna Schmidt">
+                <label>Adresse</label><input type="text" id="r-addr" placeholder="Musterstraße 12, 10115 Berlin">
+                <div class="g2">
+                    <div><label>Stadt *</label><input type="text" id="r-city" placeholder="Berlin"></div>
+                    <div><label>Region</label>
+                        <select id="r-region">
+                            <option value="">Alle</option>
+                            <option value="nord">Norddeutschland</option>
+                            <option value="nrw">Nordrhein-Westfalen</option>
+                            <option value="mitte">Mitteldeutschland</option>
+                            <option value="sued">Süddeutschland</option>
+                            <option value="ost">Ostdeutschland</option>
+                            <option value="west">Westdeutschland</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="g2">
+                    <div><label>E-Mail *</label><input type="email" id="r-email"></div>
+                    <div><label>Telefon</label><input type="tel" id="r-phone" placeholder="+49 ..."></div>
+                </div>
+                <div class="g2">
+                    <div>
+                        <label>Passwort *</label>
+                        <input type="password" id="r-pw" oninput="checkPwStrength(this.value,'r-pw-bar')" placeholder="mind. 8 Zeichen">
+                        <div id="r-pw-bar" class="pw-strength" style="width:0%;background:#ddd;"></div>
+                    </div>
+                    <div><label>Bestätigen *</label><input type="password" id="r-pc"></div>
+                </div>
+                <!-- ЗАДАЧА 13: LANR + BSNR -->
+                <div style="background:var(--primary-light);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:4px;">
+                    <div style="font-size:.8rem;font-weight:700;color:var(--primary);margin-bottom:8px;">🔐 Verifizierungsdaten (Anti-Fake)</div>
+                    <div class="g2">
+                        <div>
+                            <label style="font-size:.8rem;">BSNR — Betriebsstättennummer *
+                                <span class="lanr-help" title="9-stellige Betriebsstättennummer (Kassenärztliche Vereinigung)">?</span>
+                            </label>
+                            <input type="text" id="r-bsnr" placeholder="123456789" maxlength="9"
+                                oninput="validateLANR(this,'r-bsnr-status','BSNR')" style="margin:4px 0 0;font-family:monospace;letter-spacing:.1em;">
+                            <div class="lanr-status" id="r-bsnr-status"></div>
+                        </div>
+                        <div>
+                            <label style="font-size:.8rem;">LANR — Arzt-ID (leitender Arzt) *
+                                <span class="lanr-help" title="9-stellige Lebenslange Arztnummer (LANR)">?</span>
+                            </label>
+                            <input type="text" id="r-lanr" placeholder="123456789" maxlength="9"
+                                oninput="validateLANR(this,'r-lanr-status','LANR')" style="margin:4px 0 0;font-family:monospace;letter-spacing:.1em;">
+                            <div class="lanr-status" id="r-lanr-status"></div>
+                        </div>
+                    </div>
+                    <div style="font-size:.72rem;color:var(--text-muted);margin-top:8px;line-height:1.5;">
+                        ⚠️ Diese Angaben werden durch den Master-Admin verifiziert. Falsche Angaben führen zur Sperrung des Kontos.
+                    </div>
+                </div>
+                <!-- ЗАДАЧА 15: Approbation Scan Upload -->
+                <div style="margin-bottom:4px;">
+                    <label style="font-size:.88rem;font-weight:600;display:flex;align-items:center;gap:6px;">
+                        📄 Approbationsurkunde *
+                        <span class="lanr-help" title="Amtliche Zulassung zur Ausübung der Heilkunde (§ 3 BÄO)">?</span>
+                    </label>
+                    <div id="appro-drop-zone" class="appro-drop-zone" onclick="document.getElementById('r-appro-file').click()" ondragover="approDragOver(event)" ondragleave="approDragLeave(event)" ondrop="approDrop(event)">
+                        <input type="file" id="r-appro-file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="approFileSelected(this.files[0])">
+                        <div id="appro-drop-content">
+                            <div class="appro-drop-icon">📄</div>
+                            <div class="appro-drop-text">PDF oder Bild hierher ziehen</div>
+                            <div class="appro-drop-sub">oder klicken zum Auswählen · Max. 5 MB</div>
+                        </div>
+                        <div id="appro-preview" style="display:none;"></div>
+                    </div>
+                    <div class="lanr-status" id="appro-status"></div>
+                </div>
+                <label>Logo / Emoji</label><input type="text" id="r-logo" placeholder="🏥" maxlength="2">
+                <button class="btn btn-main" onclick="handleRegister()">Praxis registrieren</button>
+                <div style="text-align:center;"><button class="btn-text" onclick="showAuthPage('page-login')">← Zurück</button></div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     DASHBOARD SHELL — shown when logged in
+     ══════════════════════════════════════════════════════════ -->
+<div id="dashboard-shell" class="dashboard-shell" style="display:none;">
+
+    <!-- Mobile toggle button -->
+    <button class="sidebar-toggle" onclick="toggleSidebar()" id="sidebar-toggle-btn">☰</button>
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+    <!-- ── ЗАДАЧА 14: Pending-Verification Overlay ── -->
+    <div id="pending-overlay" style="display:none;position:fixed;inset:0;z-index:1000;background:linear-gradient(135deg,#f8f5ff 0%,#ede8f9 100%);display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px;">
+        <div class="pending-card">
+            <div class="pending-icon">⏳</div>
+            <h2 class="pending-title">Konto wird geprüft</h2>
+            <p class="pending-desc">Ihre Praxis-Registrierung wurde erfolgreich eingereicht.<br>
+            Unser Team verifiziert Ihre <strong>BSNR</strong> und <strong>LANR</strong> bei der Kassenärztlichen Vereinigung.</p>
+
+            <div class="pending-info-grid">
+                <div class="pending-info-row">
+                    <span class="pending-info-icon">🏥</span>
+                    <div>
+                        <div class="pending-info-label">Praxis</div>
+                        <div class="pending-info-value" id="pending-praxis-name">—</div>
+                    </div>
+                </div>
+                <div class="pending-info-row">
+                    <span class="pending-info-icon">🔐</span>
+                    <div>
+                        <div class="pending-info-label">BSNR</div>
+                        <div class="pending-info-value" id="pending-bsnr">—</div>
+                    </div>
+                </div>
+                <div class="pending-info-row">
+                    <span class="pending-info-icon">📄</span>
+                    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+                        <div>
+                            <div class="pending-info-label">Approbationsurkunde</div>
+                            <div class="pending-info-value" id="pending-appro-status">—</div>
+                        </div>
+                        <button id="pending-appro-btn" onclick="viewApproScan()" style="display:none;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:5px 12px;font-size:.75rem;font-weight:700;cursor:pointer;">📎 Ansehen</button>
+                    </div>
+                </div>
+                <div class="pending-info-row">
+                    <span class="pending-info-icon">👨‍⚕️</span>
+                    <div>
+                        <div class="pending-info-label">LANR (leitender Arzt)</div>
+                        <div class="pending-info-value" id="pending-lanr">—</div>
+                    </div>
+                </div>
+                <div class="pending-info-row">
+                    <span class="pending-info-icon">⏱</span>
+                    <div>
+                        <div class="pending-info-label">Wartezeit</div>
+                        <div class="pending-info-value">Bis zu 24 Stunden</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pending-timeline">
+                <div class="pending-step done">
+                    <div class="pending-step-dot">✓</div>
+                    <div class="pending-step-label">Registrierung eingereicht</div>
+                </div>
+                <div class="pending-step active">
+                    <div class="pending-step-dot">2</div>
+                    <div class="pending-step-label">BSNR &amp; LANR Verifizierung</div>
+                </div>
+                <div class="pending-step">
+                    <div class="pending-step-dot">3</div>
+                    <div class="pending-step-label">Konto freigeschaltet</div>
+                </div>
+            </div>
+
+            <div class="pending-note">
+                📧 Sie erhalten eine E-Mail sobald Ihr Konto freigeschaltet wird.<br>
+                Bei Fragen: <strong>support@einfach-termin.de</strong>
+            </div>
+
+            <button class="btn btn-outline" onclick="logout()" style="width:auto;padding:10px 28px;margin-top:8px;">🚪 Abmelden</button>
+        </div>
+    </div>
+
+    <!-- ── ЗАДАЧА 10: Impersonation Banner ── -->
+    <div id="impersonation-banner" style="display:none;">
+        <div class="imp-banner-inner">
+            <div class="imp-banner-left">
+                <span class="imp-crown">👑</span>
+                <div>
+                    <div class="imp-title">Master-Ansicht aktiv</div>
+                    <div class="imp-subtitle">Du siehst die Praxis als Super-Admin · Änderungen sind möglich</div>
+                </div>
+            </div>
+            <div class="imp-banner-right">
+                <div class="imp-praxis-pill" id="imp-praxis-name">—</div>
+                <button class="imp-back-btn" onclick="exitImpersonation()">
+                    ← Zurück zu Master
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ SIDEBAR ═══ -->
+    <aside class="sidebar" id="main-sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-text" onclick="location.reload()">Einfach<span>-Termin</span></div>
+            <span class="admin-badge">PRAXIS ADMIN</span>
+            <div class="sidebar-praxis-name" id="sidebar-praxis-name">—</div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="sidebar-section-label">Hauptmenü</div>
+
+            <button class="sidebar-nav-item active" data-section="section-overview" onclick="switchSection('section-overview', this)">
+                <span class="sidebar-nav-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                </span>
+                <span>Übersicht</span>
+                <span class="sidebar-nav-badge" id="badge-pending" style="display:none;">0</span>
+            </button>
+
+            <button class="sidebar-nav-item" data-section="section-kanban" onclick="switchSection('section-kanban', this)">
+                <span class="sidebar-nav-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                </span>
+                <span>Termine</span>
+                <span class="sidebar-nav-badge" id="badge-kanban" style="display:none;">0</span>
+                <span class="sidebar-nav-badge danger" id="badge-suspicious" style="display:none;">0</span>
+            </button>
+
+            <button class="sidebar-nav-item" data-section="section-doctors" onclick="switchSection('section-doctors', this)">
+                <span class="sidebar-nav-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                </span>
+                <span>Ärzte-Team</span>
+            </button>
+
+            <button class="sidebar-nav-item" data-section="section-settings" onclick="switchSection('section-settings', this)">
+                <span class="sidebar-nav-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </span>
+                <span>Einstellungen</span>
+            </button>
+
+            <div class="sidebar-section-label" style="margin-top:6px;">System</div>
+
+            <button class="sidebar-nav-item" id="sidebar-master-btn" data-section="section-master" onclick="switchSection('section-master', this)" style="display:none;">
+                <span class="sidebar-nav-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                </span>
+                <span>Master</span>
+            </button>
+
+            <button class="sidebar-nav-item" onclick="promptMasterPin()" id="sidebar-master-lock">
+                <span class="sidebar-nav-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </span>
+                <span>Master-Zugang</span>
+            </button>
+        </nav>
+
+        <div class="sidebar-footer">
+            <!-- User block -->
+            <div class="sidebar-footer-user">
+                <div class="sidebar-footer-avatar" id="sidebar-avatar">🏥</div>
+                <div class="sidebar-footer-user-info">
+                    <div class="sidebar-footer-user-name" id="sidebar-praxis-name-footer">Praxis</div>
+                    <div class="sidebar-footer-user-role" id="sidebar-session-info">Admin</div>
+                </div>
+            </div>
+            <div class="sidebar-footer-divider"></div>
+            <div class="sidebar-footer-actions">
+                <button class="sidebar-footer-btn" onclick="toggleDark()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                    Farbschema
+                </button>
+                <button class="sidebar-footer-btn" onclick="exportCSV()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    CSV Export
+                </button>
+                <button class="sidebar-footer-btn danger" onclick="logout()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    Abmelden
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ═══ MAIN CONTENT ═══ -->
+    <main class="main-content">
+
+        <!-- ── SECTION: OVERVIEW (Обзор) ── -->
+        <div id="section-overview" class="dash-section active">
+            <div class="section-header">
+                <div>
+                    <div class="section-title" id="d-title">Praxis-Dashboard</div>
+                    <div class="section-subtitle" id="d-subtitle"></div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn-emergency" style="width:auto;min-width:200px;margin:0;" onclick="activateEmergencyMode()">🚨 NOTFALL — Heute absagen</button>
+                </div>
+            </div>
+
+            <div class="praxis-link-bar" id="praxis-link-bar"></div>
+            <!-- ЗАДАЧА 20: Subscription-Banner (abgelaufen / Warnung) -->
+            <div id="subscription-banner-wrap"></div>
+            <div id="today-banner-wrap"></div>
+            <div id="noshow-panel-wrap" style="margin-bottom:16px;"></div>
+            <!-- ЗАДАЧА 16: Suspicious panel -->
+            <div id="suspicious-panel-wrap"></div>
+
+            <!-- ── ЗАДАЧА 4: Виджеты-карточки Обзор ─────────────────────── -->
+            <div class="overview-widgets" id="overview-widgets"></div>
+
+            <!-- Stats (сохранены для совместимости с renderDashboard) -->
+            <span id="ds-total" style="display:none"></span>
+            <span id="ds-confirmed" style="display:none"></span>
+            <span id="ds-pending" style="display:none"></span>
+            <span id="ds-cancelled" style="display:none"></span>
+
+            <!-- Charts -->
+            <div class="g2">
+                <div class="card">
+                    <div style="font-weight:700;font-size:.95rem;margin-bottom:10px;">📊 Termine nach Wochentag</div>
+                    <div class="week-bar-wrap">
+                        <div class="week-bar-col"><div class="week-bar" id="dwb-1" style="height:4px;"></div><div class="week-bar-lbl">Mo</div></div>
+                        <div class="week-bar-col"><div class="week-bar" id="dwb-2" style="height:4px;"></div><div class="week-bar-lbl">Di</div></div>
+                        <div class="week-bar-col"><div class="week-bar" id="dwb-3" style="height:4px;"></div><div class="week-bar-lbl">Mi</div></div>
+                        <div class="week-bar-col"><div class="week-bar" id="dwb-4" style="height:4px;"></div><div class="week-bar-lbl">Do</div></div>
+                        <div class="week-bar-col"><div class="week-bar" id="dwb-5" style="height:4px;"></div><div class="week-bar-lbl">Fr</div></div>
+                        <div class="week-bar-col"><div class="week-bar" id="dwb-6" style="height:4px;opacity:.35;"></div><div class="week-bar-lbl">Sa</div></div>
+                        <div class="week-bar-col"><div class="week-bar" id="dwb-0" style="height:4px;opacity:.35;"></div><div class="week-bar-lbl">So</div></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div style="font-weight:700;font-size:.95rem;margin-bottom:10px;">📈 4-Monats-Statistik</div>
+                    <div style="overflow-x:auto;">
+                        <div class="chart-container">
+                            <div class="chart-bar" id="bar-1" data-value="0" style="height:5px;"></div>
+                            <div class="chart-bar" id="bar-2" data-value="0" style="height:5px;"></div>
+                            <div class="chart-bar" id="bar-3" data-value="0" style="height:5px;"></div>
+                            <div class="chart-bar" id="bar-4" data-value="0" style="height:5px;"></div>
+                        </div>
+                        <div class="chart-labels">
+                            <div class="chart-label" id="bar-lbl-1">—</div>
+                            <div class="chart-label" id="bar-lbl-2">—</div>
+                            <div class="chart-label" id="bar-lbl-3">—</div>
+                            <div class="chart-label" id="bar-lbl-4">Aktuell</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Extra stats + Auslastung -->
+            <div class="g2">
+                <div class="card"><div style="font-size:.85rem;color:var(--text-muted);" id="ds-extra"></div></div>
+                <div class="card auslastung-card">
+                    <h3 style="margin:0 0 4px;font-family:'Fraunces',serif;">📈 Auslastung</h3>
+                    <div class="period-tabs">
+                        <button class="period-tab active" onclick="setLoadPeriod(7,this)">7 Tage</button>
+                        <button class="period-tab" onclick="setLoadPeriod(30,this)">30 Tage</button>
+                        <button class="period-tab" onclick="setLoadPeriod(90,this)">90 Tage</button>
+                    </div>
+                    <div class="load-summary-grid" id="load-summary"></div>
+                    <div id="load-doc-list"></div>
+                </div>
+            </div>
+
+            <!-- Audit Log -->
+            <div class="card">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+                    <h3 style="margin:0;font-family:'Fraunces',serif;">📋 Aktivitätsprotokoll</h3>
+                    <!-- ЗАДАЧА 22: Deep Audit Filter -->
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <select id="audit-filter-cat" onchange="renderAuditLog()" style="margin:0;padding:5px 10px;font-size:.75rem;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);width:auto;">
+                            <option value="">Alle Kategorien</option>
+                            <option value="appt">📅 Termine</option>
+                            <option value="limit">🎯 Limit-Ablehnungen</option>
+                            <option value="lanr">🔐 LANR/BSNR-Fehler</option>
+                            <option value="auth">🔑 Login/Auth</option>
+                            <option value="master">👑 Master</option>
+                            <option value="email">📧 E-Mail</option>
+                            <option value="system">⚙️ System</option>
+                        </select>
+                        <button class="btn-text" style="font-size:.75rem;" onclick="clearAudit()">🗑 Löschen</button>
+                    </div>
+                </div>
+                <div class="audit-wrap" id="audit-log-wrap"><div class="empty">Noch keine Aktionen.</div></div>
+            </div>
+        </div>
+
+        <!-- ── SECTION: KANBAN (Termine) ── -->
+        <div id="section-kanban" class="dash-section">
+            <div class="section-header">
+                <div>
+                    <div class="section-title">📅 Terminverwaltung</div>
+                    <div class="section-subtitle">Alle Terminanfragen auf einen Blick</div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn btn-outline" style="width:auto;margin:0;padding:8px 14px;" onclick="printTodaySchedule()">🖨️ Tagesplan drucken</button>
+                </div>
+            </div>
+
+            <!-- Kanban Board — 100% Höhe mit internem Spalten-Scroll (Aufgabe 3) -->
+            <div class="card kanban-board-card">
+                <div class="kanban-top-bar">
+                    <h3 style="margin:0;font-family:'Fraunces',serif;">Terminanfragen</h3>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <label style="margin:0;font-size:.82rem;">Arzt:</label>
+                        <select id="kanban-filter-doc" onchange="renderKanban()" style="margin:0;width:auto;padding:6px 10px;font-size:.82rem;"></select>
+                        <span style="font-size:.72rem;color:#aaa;">💡 Karten ziehen zum Wechseln</span>
+                    </div>
+                </div>
+                <div class="kanban-wrap">
+                    <div class="kanban-col" id="kanban-pending" ondragover="kanbanDragOver(event,'pending')" ondragleave="kanbanDragLeave()" ondrop="kanbanDrop(event,'pending')">
+                        <div class="kanban-col-title">⏳ Ausstehend</div>
+                        <div class="kanban-col-body" id="d-pending-list"></div>
+                    </div>
+                    <div class="kanban-col" id="kanban-waiting" ondragover="kanbanDragOver(event,'waiting')" ondragleave="kanbanDragLeave()" ondrop="kanbanDrop(event,'waiting')" style="border-color:var(--warning);background:var(--warning-light);">
+                        <div class="kanban-col-title" style="color:var(--warning);">🪑 Im Wartezimmer</div>
+                        <div class="kanban-col-body" id="d-waiting-list"></div>
+                    </div>
+                    <div class="kanban-col" id="kanban-confirmed" ondragover="kanbanDragOver(event,'confirmed')" ondragleave="kanbanDragLeave()" ondrop="kanbanDrop(event,'confirmed')">
+                        <div class="kanban-col-title">✅ Bestätigt</div>
+                        <div class="kanban-col-body" id="d-done-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manuelle Buchung — сворачивается под Kanban (Aufgabe 3) -->
+            <div class="card kanban-manual-section" style="border:2px solid var(--lavender-deep);">
+                <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;" onclick="toggleManualBooking()">
+                    <div>
+                        <h3 style="margin:0;font-family:'Fraunces',serif;">📝 Manuelle Buchung</h3>
+                        <p style="font-size:.78rem;color:var(--text-muted);margin:4px 0 0;">Für Patienten die persönlich oder telefonisch einen Termin vereinbaren.</p>
+                    </div>
+                    <span id="manual-toggle-icon" style="font-size:1.2rem;color:var(--primary);flex-shrink:0;margin-left:12px;">▸</span>
+                </div>
+                <div id="manual-booking-body" style="display:none;margin-top:14px;">
+                    <div id="mb-err" class="err"></div>
+                    <div class="g2">
+                        <div><label>Patienten-Name *</label><input type="text" id="mb-name" placeholder="Max Mustermann" style="margin:0;"></div>
+                        <div><label>Telefon / Notiz</label><input type="text" id="mb-phone" placeholder="+49 ... oder Bemerkung" style="margin:0;"></div>
+                    </div>
+                    <div class="g2" style="margin-top:10px;">
+                        <div><label>Arzt *</label><select id="mb-doc" onchange="updateManualSlots()" style="margin:0;"></select></div>
+                        <div><label>Datum *</label><input type="date" id="mb-date" onchange="updateManualSlots()" style="margin:0;"></div>
+                    </div>
+                    <div style="margin-top:10px;">
+                        <label>Termintyp</label>
+                        <select id="mb-type" style="margin:0;">
+                            <option value="exam">🔵 Untersuchung</option>
+                            <option value="consult">🟣 Konsultation</option>
+                            <option value="procedure">🟤 Behandlung</option>
+                            <option value="operation">⚫ Operation</option>
+                        </select>
+                    </div>
+                    <div style="margin-top:10px;">
+                        <label>Zeitslot *</label>
+                        <div id="mb-slot-info" style="font-size:.75rem;color:var(--text-muted);margin-bottom:4px;"></div>
+                        <div class="slot-grid" id="mb-slot-grid" style="margin:0;"><span style="color:#aaa;font-size:.8rem;">Arzt und Datum wählen</span></div>
+                    </div>
+                    <div style="margin-top:10px;"><label>Grund des Besuchs</label><input type="text" id="mb-reason" placeholder="z.B. Routinekontrolle" style="margin:0;"></div>
+                    <button class="btn btn-main" style="margin-top:14px;" onclick="saveManualBooking()">📝 Termin manuell eintragen</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── SECTION: DOCTORS (Ärzte) ── -->
+        <div id="section-doctors" class="dash-section">
+            <div class="section-header">
+                <div>
+                    <div class="section-title">👥 Ärzte-Team</div>
+                    <div class="section-subtitle">Team verwalten, Status und Einstellungen</div>
+                </div>
+                <button class="btn btn-main" style="width:auto;padding:10px 20px;margin:0;display:flex;align-items:center;gap:8px;" onclick="openAddDoctorModal()">
+                    <span style="font-size:1.1rem;">＋</span> Arzt hinzufügen
+                </button>
+            </div>
+
+            <!-- Doctors List -->
+            <div class="card">
+                <h3 style="margin:0 0 12px;font-family:'Fraunces',serif;">Team-Übersicht</h3>
+                <div id="doctors-list"></div>
+            </div>
+
+            <!-- Auslastung -->
+            <div class="card auslastung-card">
+                <h3 style="margin:0 0 4px;font-family:'Fraunces',serif;">📈 Auslastung & Heatmap</h3>
+                <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 12px;">Anteil belegter Slots im gewählten Zeitraum.</p>
+                <div class="period-tabs">
+                    <button class="period-tab active" onclick="setLoadPeriod(7,this)">7 Tage</button>
+                    <button class="period-tab" onclick="setLoadPeriod(30,this)">30 Tage</button>
+                    <button class="period-tab" onclick="setLoadPeriod(90,this)">90 Tage</button>
+                </div>
+                <div id="load-doc-list-2"></div>
+                <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+                    <div style="font-size:.78rem;font-weight:700;color:var(--text-muted);margin-bottom:6px;">🗓 Heatmap</div>
+                    <div id="load-heatmap"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── SECTION: SETTINGS (Einstellungen) ── -->
+        <div id="section-settings" class="dash-section">
+            <div class="section-header">
+                <div>
+                    <div class="section-title">⚙️ Einstellungen</div>
+                    <div class="section-subtitle">Arzt-Konfiguration, Zeitplan und E-Mail</div>
+                </div>
+            </div>
+
+            <!-- ЗАДАЧА 19: Online-Slot-Limit -->
+            <div class="card" style="border:2px solid var(--primary);">
+                <h3 style="margin:0 0 4px;font-family:'Fraunces',serif;">🎯 Online-Buchungslimit</h3>
+                <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 16px;">Maximale Online-Buchungen pro Stunde. Bei Überschreitung sieht der Patient die <strong>Live-Warteschlange</strong>.</p>
+                <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:200px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                            <label style="font-size:.82rem;font-weight:600;margin:0;">Max. Buchungen / Stunde</label>
+                            <span id="slot-limit-display" style="font-size:1.4rem;font-weight:900;font-family:'Fraunces',serif;color:var(--primary);">10</span>
+                        </div>
+                        <input type="range" id="slot-limit-slider" min="1" max="20" value="10" step="1"
+                            oninput="updateSlotLimitDisplay(this.value)"
+                            style="width:100%;accent-color:var(--primary);">
+                        <div style="display:flex;justify-content:space-between;font-size:.65rem;color:var(--text-muted);margin-top:2px;">
+                            <span>1 (sehr restriktiv)</span><span>10</span><span>20 (offen)</span>
+                        </div>
+                    </div>
+                    <div style="flex-shrink:0;">
+                        <button class="btn btn-main" onclick="saveSlotLimit()" style="width:auto;padding:10px 22px;margin:0;">💾 Speichern</button>
+                    </div>
+                </div>
+                <div id="slot-limit-status" style="margin-top:10px;font-size:.78rem;"></div>
+
+                <!-- Предупреждение о текущей нагрузке -->
+                <div id="slot-limit-current" style="margin-top:12px;padding:10px 14px;background:var(--bg);border-radius:var(--r-sm);font-size:.8rem;"></div>
+            </div>
+
+            <!-- Doctor Settings -->
+            <div class="card">
+                <h3 style="margin:0 0 12px;font-family:'Fraunces',serif;">⚙️ Arzt-Einstellungen</h3>
+                <label>Arzt auswählen</label>
+                <select id="settings-doc-sel" onchange="loadDoctorSettings()" style="margin-bottom:10px;"></select>
+                <div id="doctor-settings-wrap"><div class="empty">Arzt auswählen.</div></div>
+            </div>
+
+            <!-- Schedule Editor -->
+            <div class="card" style="border:2px solid var(--lavender-deep);">
+                <h3 style="margin:0 0 4px;font-family:'Fraunces',serif;">📅 Wochenplan &amp; Pausen</h3>
+                <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 14px;">Arbeitstage, Öffnungszeiten und individuelle Pausenzeiten pro Arzt.</p>
+                <label>Arzt auswählen</label>
+                <select id="sched-doc-sel" onchange="loadScheduleEditor()" style="margin-bottom:14px;"></select>
+                <div id="schedule-editor-wrap"><div class="empty">Arzt auswählen.</div></div>
+            </div>
+
+            <!-- ── ЗАДАЧА 29: Firebase Realtime Sync ── -->
+            <div class="card firebase-card" id="firebase-settings-card">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+                    <div>
+                        <h3 style="margin:0;font-family:'Fraunces',serif;">🔥 Firebase Echtzeit-Sync</h3>
+                        <p style="font-size:.78rem;color:var(--text-muted);margin:3px 0 0;">Daten zwischen Geräten synchronisieren — kein Datenverlust beim Gerätewechsel.</p>
+                    </div>
+                    <span id="firebase-status-badge" class="firebase-badge offline">⚫ Nicht konfiguriert</span>
+                </div>
+
+                <!-- Переключатель -->
+                <div class="firebase-toggle-row">
+                    <label class="firebase-toggle-label" for="firebase-enabled-chk">
+                        Firebase aktivieren
+                    </label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="firebase-enabled-chk" onchange="toggleFirebaseEnabled(this.checked)">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <!-- Конфиг -->
+                <div id="firebase-config-wrap" style="display:none;margin-top:14px;">
+                    <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px;line-height:1.5;">
+                        Kostenloses Konto erstellen auf
+                        <a href="https://console.firebase.google.com" target="_blank" style="color:var(--primary);">console.firebase.google.com</a>
+                        → Neues Projekt → Realtime Database → Konfiguration kopieren.
+                    </div>
+
+                    <label style="font-size:.8rem;font-weight:600;">API Key</label>
+                    <input type="text" id="fb-api-key" placeholder="AIzaSy..." style="margin-bottom:8px;font-family:monospace;font-size:.82rem;">
+
+                    <label style="font-size:.8rem;font-weight:600;">Auth Domain</label>
+                    <input type="text" id="fb-auth-domain" placeholder="mein-projekt.firebaseapp.com" style="margin-bottom:8px;font-family:monospace;font-size:.82rem;">
+
+                    <label style="font-size:.8rem;font-weight:600;">Database URL *</label>
+                    <input type="text" id="fb-database-url" placeholder="https://mein-projekt-default-rtdb.europe-west1.firebasedatabase.app" style="margin-bottom:8px;font-family:monospace;font-size:.82rem;">
+
+                    <label style="font-size:.8rem;font-weight:600;">Project ID</label>
+                    <input type="text" id="fb-project-id" placeholder="mein-projekt" style="margin-bottom:12px;font-family:monospace;font-size:.82rem;">
+
+                    <!-- JSON Einfügen -->
+                    <div style="margin-bottom:12px;">
+                        <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);margin-bottom:6px;">Oder Firebase-Config als JSON einfügen:</div>
+                        <textarea id="fb-json-paste" rows="4" placeholder='{"apiKey":"...","authDomain":"...","databaseURL":"...","projectId":"..."}' style="font-family:monospace;font-size:.72rem;resize:vertical;min-height:80px;" oninput="parseFirebaseJSON(this.value)"></textarea>
+                    </div>
+
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn btn-main" onclick="saveFirebaseConfig()" style="width:auto;padding:9px 20px;margin:0;">
+                            🔥 Verbinden & Sync starten
+                        </button>
+                        <button class="btn btn-outline" onclick="firebasePushLocal()" style="width:auto;padding:9px 16px;margin:0;" id="fb-upload-btn" disabled>
+                            ⬆️ Lokale Daten hochladen
+                        </button>
+                        <button class="btn btn-outline" onclick="firebasePullRemote()" style="width:auto;padding:9px 16px;margin:0;" id="fb-pull-btn" disabled>
+                            ⬇️ Remote Daten laden
+                        </button>
+                    </div>
+
+                    <!-- Статус соединения -->
+                    <div id="firebase-conn-status" style="margin-top:12px;padding:10px 14px;background:var(--bg);border-radius:var(--r-sm);font-size:.78rem;display:none;"></div>
+
+                    <!-- Правила для Firebase -->
+                    <details style="margin-top:14px;">
+                        <summary style="font-size:.78rem;font-weight:700;color:var(--text-muted);cursor:pointer;">📋 Empfohlene Firebase Sicherheitsregeln</summary>
+                        <pre style="font-family:monospace;font-size:.7rem;background:var(--bg);padding:12px;border-radius:var(--r-sm);margin-top:8px;overflow-x:auto;line-height:1.5;">{
+  "rules": {
+    "praxen": {
+      "$praxisId": {
+        ".read":  "auth != null || true",
+        ".write": "auth != null || true"
+      }
+    }
+  }
+}</pre>
+                        <div style="font-size:.7rem;color:var(--text-muted);margin-top:6px;">
+                            ⚠️ Für Produktion: Authentifizierung aktivieren und Regeln verschärfen.
+                        </div>
+                    </details>
+                </div>
+
+                <!-- Краткая инструкция когда не настроено -->
+                <div id="firebase-setup-hint" style="margin-top:10px;">
+                    <div style="display:flex;gap:8px;align-items:flex-start;font-size:.78rem;color:var(--text-muted);line-height:1.6;">
+                        <span style="font-size:1rem;">💡</span>
+                        <span>Ohne Firebase: Daten nur auf diesem Gerät. Mit Firebase: Sync zwischen allen Geräten (PC, Tablet, Handy) in Echtzeit. Kostenlos bis 1 GB Speicher & 10 GB/Monat Traffic.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- EmailJS -->
+            <div class="card email-settings-card">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+                    <h3 style="margin:0;font-family:'Fraunces',serif;">📧 E-Mail Benachrichtigungen</h3>
+                    <span class="emailjs-status not-configured" id="emailjs-status-badge">⚪ Nicht konfiguriert</span>
+                </div>
+                <p style="font-size:.78rem;color:var(--text-muted);margin:0 0 14px;line-height:1.5;">
+                    Kostenlos via <strong>EmailJS.com</strong> — bis zu 200 E-Mails/Monat gratis.
+                    <a href="https://www.emailjs.com" target="_blank" style="color:var(--primary);">Konto erstellen →</a>
+                </p>
+                <div id="emailjs-config-wrap">
+                    <label>Service ID</label><input type="text" id="ejs-service" placeholder="service_xxxxxxx" style="margin-bottom:8px;">
+                    <label>Template ID</label><input type="text" id="ejs-template" placeholder="template_xxxxxxx" style="margin-bottom:8px;">
+                    <label>Public Key (User ID)</label><input type="text" id="ejs-pubkey" placeholder="xxxxxxxxxxxxxxxxxxxxxx" style="margin-bottom:12px;">
+                    <div style="font-size:.78rem;font-weight:700;color:var(--text-muted);margin-bottom:8px;">Template-Variablen:</div>
+                    <div style="background:var(--bg);border-radius:var(--r-sm);padding:10px 12px;font-size:.72rem;font-family:monospace;color:var(--text-muted);line-height:1.8;margin-bottom:12px;">
+                        {{to_email}} · {{to_name}} · {{doctor_name}}<br>
+                        {{praxis_name}} · {{date}} · {{time}}<br>
+                        {{appt_type}} · {{reason}} · {{status_label}}<br>
+                        {{message}} · {{praxis_phone}}
+                    </div>
+                    <button class="btn btn-outline" style="margin:0 0 8px;" onclick="saveEmailJSConfig()">💾 Konfiguration speichern</button>
+                    <button class="email-send-btn" id="ejs-test-btn" onclick="sendTestEmail()" style="width:100%;justify-content:center;margin-top:4px;" disabled>
+                        🧪 Test-E-Mail senden
+                    </button>
+                </div>
+                <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+                    <div style="font-size:.8rem;font-weight:700;color:var(--text-muted);margin-bottom:8px;">Wann E-Mail senden:</div>
+                    <div class="email-toggle"><input type="checkbox" id="ejs-on-confirm" checked onchange="saveEmailToggles()"><label for="ejs-on-confirm">✅ Bei Terminbestätigung</label></div>
+                    <div class="email-toggle"><input type="checkbox" id="ejs-on-cancel" checked onchange="saveEmailToggles()"><label for="ejs-on-cancel">❌ Bei Absage</label></div>
+                    <div class="email-toggle"><input type="checkbox" id="ejs-on-reminder" checked onchange="saveEmailToggles()"><label for="ejs-on-reminder">🔔 24h-Erinnerung (manuell)</label></div>
+                </div>
+                <div style="margin-top:12px;">
+                    <div style="font-size:.78rem;font-weight:700;color:var(--text-muted);margin-bottom:6px;">Vorschau letzter E-Mail:</div>
+                    <div class="email-preview-box" id="email-preview-box"><div style="color:#aaa;font-size:.78rem;">Noch keine E-Mail gesendet.</div></div>
+                </div>
+                <div style="margin-top:12px;">
+                    <div style="font-size:.78rem;font-weight:700;color:var(--text-muted);margin-bottom:6px;">Letzte Sendungen:</div>
+                    <div id="email-log-wrap" style="max-height:120px;overflow-y:auto;"><div style="color:#aaa;font-size:.76rem;padding:6px 0;">Noch keine E-Mails.</div></div>
+                </div>
+                <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+                    <div style="font-size:.8rem;font-weight:700;color:var(--text-muted);margin-bottom:8px;">🔔 24h-Erinnerungen:</div>
+                    <button class="email-send-btn" onclick="sendReminders()" style="width:100%;justify-content:center;">📨 Erinnerungen jetzt senden</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── SECTION: MASTER (👑 — locked by PIN) ── -->
+        <!-- ── SECTION: MASTER (Obsidian & Gold — Задача 7) ── -->
+        <div id="section-master" class="dash-section master-section">
+            <!-- Gold header bar -->
+            <div class="master-topbar">
+                <div class="master-topbar-left">
+                    <div class="master-crown">👑</div>
+                    <div>
+                        <div class="master-title">Master-Dashboard</div>
+                        <div class="master-subtitle">Super-Admin · Vollzugriff auf alle Praxen</div>
+                    </div>
+                </div>
+                <div class="master-topbar-right">
+                    <div class="master-session-badge" id="master-session-badge">
+                        <span class="master-session-dot"></span>
+                        <span id="master-session-label">Sitzung aktiv</span>
+                    </div>
+                    <button class="master-lock-btn" onclick="lockMaster()" title="Master sperren">🔒</button>
+                </div>
+            </div>
+
+            <!-- ── ЗАДАЧА 8: Глобальная статистика ── -->
+
+            <!-- Row 1: 4 главных метрики -->
+            <div class="master-stats-grid" id="master-stats-grid">
+                <div class="master-stat-card">
+                    <div class="master-stat-icon">🏥</div>
+                    <div class="master-stat-value" id="ms-praxen">—</div>
+                    <div class="master-stat-label">Praxen</div>
+                </div>
+                <div class="master-stat-card">
+                    <div class="master-stat-icon">👨‍⚕️</div>
+                    <div class="master-stat-value" id="ms-doctors">—</div>
+                    <div class="master-stat-label">Ärzte gesamt</div>
+                </div>
+                <div class="master-stat-card">
+                    <div class="master-stat-icon">📅</div>
+                    <div class="master-stat-value" id="ms-appts">—</div>
+                    <div class="master-stat-label">Termine gesamt</div>
+                </div>
+                <div class="master-stat-card">
+                    <div class="master-stat-icon">✅</div>
+                    <div class="master-stat-value" id="ms-confirmed">—</div>
+                    <div class="master-stat-label">Bestätigt</div>
+                </div>
+            </div>
+
+            <!-- Row 2: 4 дополнительные метрики -->
+            <div class="master-stats-grid" style="margin-bottom:16px;">
+                <div class="master-stat-card master-stat-card--accent">
+                    <div class="master-stat-icon">📆</div>
+                    <div class="master-stat-value master-stat-value--sm" id="ms-today">—</div>
+                    <div class="master-stat-label">Heute</div>
+                </div>
+                <div class="master-stat-card master-stat-card--accent">
+                    <div class="master-stat-icon">❌</div>
+                    <div class="master-stat-value master-stat-value--sm" id="ms-cancelled">—</div>
+                    <div class="master-stat-label">Abgesagt</div>
+                </div>
+                <div class="master-stat-card master-stat-card--accent">
+                    <div class="master-stat-icon">⭐</div>
+                    <div class="master-stat-value master-stat-value--sm" id="ms-rating">—</div>
+                    <div class="master-stat-label">Ø Bewertung</div>
+                </div>
+                <div class="master-stat-card master-stat-card--accent">
+                    <div class="master-stat-icon">📊</div>
+                    <div class="master-stat-value master-stat-value--sm" id="ms-confirm-rate">—</div>
+                    <div class="master-stat-label">Bestätigungsrate</div>
+                </div>
+            </div>
+
+            <!-- Row 3: Аналитика + Trend -->
+            <div class="master-analytics-grid">
+                <!-- Топ прaxen -->
+                <div class="master-card" style="margin-bottom:0;">
+                    <div class="master-card-header">
+                        <span>🏆 Top Praxen</span>
+                        <span class="master-badge">nach Terminen</span>
+                    </div>
+                    <div id="ms-top-praxen" class="master-ranking-list"></div>
+                </div>
+                <!-- Топ врачи -->
+                <div class="master-card" style="margin-bottom:0;">
+                    <div class="master-card-header">
+                        <span>⭐ Top Ärzte</span>
+                        <span class="master-badge">nach Auslastung</span>
+                    </div>
+                    <div id="ms-top-doctors" class="master-ranking-list"></div>
+                </div>
+                <!-- Trend 4 месяца -->
+                <div class="master-card" style="margin-bottom:0;">
+                    <div class="master-card-header">
+                        <span>📈 4-Monats-Trend</span>
+                        <span class="master-badge" id="ms-trend-badge">alle Praxen</span>
+                    </div>
+                    <div id="ms-trend-chart" class="master-trend-chart"></div>
+                </div>
+            </div>
+
+            <!-- ── ЗАДАЧА 11: Виджеты аналитики ── -->
+            <div class="master-analytics-grid" style="margin-top:14px;">
+
+                <!-- Виджет 1: Активность по городам -->
+                <div class="master-card" style="margin-bottom:0;">
+                    <div class="master-card-header">
+                        <span>🗺 Aktivität nach Städten</span>
+                        <span class="master-badge" id="ms-cities-badge">Top Städte</span>
+                    </div>
+                    <div id="ms-cities-chart" class="master-cities-chart"></div>
+                </div>
+
+                <!-- Виджет 2: Популярные врачи (рейтинг) -->
+                <div class="master-card" style="margin-bottom:0;">
+                    <div class="master-card-header">
+                        <span>⭐ Beliebteste Ärzte</span>
+                        <span class="master-badge">nach Bewertung</span>
+                    </div>
+                    <div id="ms-popular-doctors" class="master-ranking-list"></div>
+                </div>
+
+                <!-- Виджет 3: Пиковые часы -->
+                <div class="master-card" style="margin-bottom:0;">
+                    <div class="master-card-header">
+                        <span>⏰ Pik-Stunden</span>
+                        <span class="master-badge">Terminverteilung</span>
+                    </div>
+                    <div id="ms-peak-hours" class="master-peak-chart"></div>
+                </div>
+
+            </div>
+
+            <!-- Row 5: Детальная таблица прaxen -->
+            <div class="master-card" style="margin-top:14px;">
+                <div class="master-card-header">
+                    <span>🏥 Alle Praxen — Detailübersicht</span>
+                    <span class="master-badge" id="ms-praxen-badge">0 aktiv</span>
+                </div>
+                <div id="master-praxen-list" class="master-praxen-list"></div>
+            </div>
+
+            <!-- ── ЗАДАЧА 18: Patient Monitor ── -->
+            <div class="master-card" style="margin-top:14px;">
+                <div class="master-card-header">
+                    <span>👤 Patient Monitor</span>
+                    <span class="master-badge" id="ms-pat-count">0 Patienten</span>
+                </div>
+
+                <!-- Фильтры -->
+                <div class="pm-filters">
+                    <input type="text" id="pm-search" placeholder="🔍 Name oder E-Mail suchen…" class="master-bl-input" oninput="renderPatientMonitor()" style="flex:2;">
+                    <select id="pm-filter-praxis" onchange="renderPatientMonitor()" class="feed-filter-select" style="flex:1;">
+                        <option value="">Alle Praxen</option>
+                    </select>
+                    <select id="pm-filter-ins" onchange="renderPatientMonitor()" class="feed-filter-select">
+                        <option value="">Alle Versicherungen</option>
+                        <option value="GKV">GKV</option>
+                        <option value="PKV">PKV</option>
+                        <option value="Selbstzahler">Selbstzahler</option>
+                    </select>
+                    <select id="pm-sort" onchange="renderPatientMonitor()" class="feed-filter-select">
+                        <option value="name">A–Z</option>
+                        <option value="appts">Meiste Termine</option>
+                        <option value="noshow">Meiste No-Shows</option>
+                        <option value="last">Letzter Termin</option>
+                    </select>
+                </div>
+
+                <!-- Список -->
+                <div id="patient-monitor-list" class="pm-list"></div>
+                <div id="pm-load-more" style="text-align:center;padding:10px;display:none;">
+                    <button class="btn-text" onclick="pmLoadMore()" style="font-size:.78rem;color:rgba(255,215,0,.6);">▾ Mehr laden</button>
+                </div>
+            </div>
+
+            <!-- ── ЗАДАЧА 17: Global Blacklist ── -->
+            <div class="master-card" style="margin-top:14px;">
+                <div class="master-card-header">
+                    <span>🚫 Global Blacklist</span>
+                    <span class="master-badge danger-badge" id="ms-bl-count">0 gesperrt</span>
+                </div>
+
+                <!-- Форма добавления -->
+                <div class="master-bl-add-form">
+                    <div class="master-bl-fields">
+                        <input type="email" id="bl-email" placeholder="E-Mail *" class="master-bl-input">
+                        <input type="text"  id="bl-phone" placeholder="Telefon (optional)" class="master-bl-input">
+                        <input type="text"  id="bl-name"  placeholder="Name (optional)" class="master-bl-input">
+                        <input type="text"  id="bl-reason" placeholder="Grund (optional)" class="master-bl-input" style="flex:2;">
+                    </div>
+                    <button class="master-bl-btn" onclick="masterAddBlacklist()">🚫 Sperren</button>
+                </div>
+                <div id="bl-err" style="color:#ff6b6b;font-size:.75rem;padding:0 16px 8px;display:none;"></div>
+
+                <!-- Список -->
+                <div id="master-blacklist" class="master-blacklist-list"></div>
+            </div>
+
+            <!-- ── ЗАДАЧА 12: Live Feed ── -->
+            <div class="master-card" style="margin-top:14px;">
+                <div class="master-card-header">
+                    <span style="display:flex;align-items:center;gap:8px;">
+                        <span class="live-feed-pulse"></span>
+                        ⚡ Live-Aktivitäts-Feed
+                    </span>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <select id="feed-filter-praxis" onchange="renderLiveFeed()" class="feed-filter-select">
+                            <option value="">Alle Praxen</option>
+                        </select>
+                        <button class="feed-refresh-btn" onclick="refreshLiveFeed()" title="Aktualisieren">↻</button>
+                        <span class="master-badge live-badge" id="feed-last-update">—</span>
+                    </div>
+                </div>
+                <div id="master-activity-feed" class="master-activity-feed live-feed"></div>
+            </div>
+        </div>
+
+    </main>
+</div><!-- /dashboard-shell -->
+
+<!-- Dokument-Vorschau Modal -->
+<div id="doc-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(44,27,105,.5);backdrop-filter:blur(6px);z-index:10003;" onclick="closeDocPreview()"></div>
+<div id="doc-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:92%;max-width:640px;max-height:88vh;background:var(--card);border-radius:var(--r);box-shadow:0 20px 60px rgba(44,27,105,.3);z-index:10004;overflow:hidden;flex-direction:column;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border);">
+        <div>
+            <div style="font-family:'Fraunces',serif;font-size:1rem;font-weight:700;" id="doc-modal-title">Dokumente</div>
+            <div style="font-size:.75rem;color:var(--text-muted);" id="doc-modal-patient"></div>
+        </div>
+        <button onclick="closeDocPreview()" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:.82rem;color:var(--text);">✕ Schließen</button>
+    </div>
+    <div id="doc-modal-body" style="overflow-y:auto;padding:16px 20px;flex:1;"></div>
+</div>
+
+<!-- ── ЗАДАЧА 5: Модал — Arzt hinzufügen / редактировать ── -->
+<div id="doc-form-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(44,27,105,.5);backdrop-filter:blur(8px);z-index:10005;" onclick="closeDocFormModal()"></div>
+<div id="doc-form-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.96);width:92%;max-width:540px;background:var(--card);border-radius:var(--r);box-shadow:0 24px 80px rgba(44,27,105,.35);z-index:10006;overflow:hidden;opacity:0;transition:opacity .22s ease,transform .22s ease;">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px;border-bottom:1px solid var(--border);">
+        <div>
+            <div id="doc-form-title" style="font-family:'Fraunces',serif;font-size:1.15rem;font-weight:900;color:var(--text);">Arzt hinzufügen</div>
+            <div id="doc-form-subtitle" style="font-size:.78rem;color:var(--text-muted);margin-top:2px;">Neues Teammitglied anlegen</div>
+        </div>
+        <button onclick="closeDocFormModal()" style="background:var(--bg);border:1px solid var(--border);border-radius:10px;width:34px;height:34px;cursor:pointer;font-size:1rem;color:var(--text);display:flex;align-items:center;justify-content:center;transition:background .15s;">✕</button>
+    </div>
+    <!-- Body -->
+    <div style="padding:20px 24px;overflow-y:auto;max-height:calc(88vh - 140px);">
+        <div id="doc-form-err" class="err"></div>
+        <input type="hidden" id="doc-form-id">
+        <div class="g2" style="margin-bottom:14px;">
+            <div>
+                <label style="font-size:.8rem;font-weight:600;">Name *</label>
+                <input type="text" id="doc-form-name" placeholder="Dr. med. Müller" style="margin:4px 0 0;">
+            </div>
+            <div>
+                <label style="font-size:.8rem;font-weight:600;">Fachrichtung *</label>
+                <input type="text" id="doc-form-spec" placeholder="Kardiologie" style="margin:4px 0 0;">
+            </div>
+        </div>
+        <div class="g2" style="margin-bottom:14px;">
+            <div>
+                <label style="font-size:.8rem;font-weight:600;">Slot-Intervall</label>
+                <select id="doc-form-duration" style="margin:4px 0 0;">
+                    <option value="10">10 Min</option>
+                    <option value="15" selected>15 Min</option>
+                    <option value="20">20 Min</option>
+                    <option value="30">30 Min</option>
+                    <option value="50">50 Min</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size:.8rem;font-weight:600;">Mittagspause</label>
+                <select id="doc-form-break" style="margin:4px 0 0;">
+                    <option value="12:00-13:00">12:00 – 13:00</option>
+                    <option value="13:00-14:00">13:00 – 14:00</option>
+                    <option value="12:30-13:30">12:30 – 13:30</option>
+                    <option value="">Keine Pause</option>
+                </select>
+            </div>
+        </div>
+        <!-- ЗАДАЧА 13: LANR Arzt -->
+        <div style="background:var(--primary-light);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:14px;">
+            <div style="font-size:.78rem;font-weight:700;color:var(--primary);margin-bottom:8px;">🔐 LANR — Arzt-Identifikation</div>
+            <div class="g2">
+                <div>
+                    <label style="font-size:.78rem;font-weight:600;">LANR *
+                        <span class="lanr-help" title="9-stellige Lebenslange Arztnummer">?</span>
+                    </label>
+                    <input type="text" id="doc-form-lanr" placeholder="123456789" maxlength="9"
+                        oninput="validateLANR(this,'doc-lanr-status','LANR')"
+                        style="margin:4px 0 0;font-family:monospace;letter-spacing:.12em;">
+                    <div class="lanr-status" id="doc-lanr-status"></div>
+                </div>
+                <div style="display:flex;align-items:flex-end;padding-bottom:2px;">
+                    <div style="font-size:.7rem;color:var(--text-muted);line-height:1.5;">
+                        Kassenärztliche Vereinigung.<br>
+                        <a href="https://www.kbv.de" target="_blank" style="color:var(--primary);">kbv.de →</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div style="margin-bottom:14px;">
+            <label style="font-size:.8rem;font-weight:600;">Farbe</label>
+            <div id="doc-form-colors" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;"></div>
+        </div>
+    </div>
+    <!-- Footer -->
+    <div style="padding:14px 24px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-outline" onclick="closeDocFormModal()" style="width:auto;padding:9px 20px;margin:0;">Abbrechen</button>
+        <button class="btn btn-main" id="doc-form-save-btn" onclick="saveDocFormModal()" style="width:auto;padding:9px 24px;margin:0;">💾 Speichern</button>
+    </div>
+</div>
+
+<!-- ── ЗАДАЧА 7: Master PIN модал — Obsidian & Gold ── -->
+<div id="master-pin-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(12px);z-index:10010;"></div>
+<div id="master-pin-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.94);z-index:10011;width:92%;max-width:380px;background:#0f0d14;border:1px solid rgba(255,215,0,.25);border-radius:20px;padding:36px 28px;text-align:center;box-shadow:0 0 80px rgba(255,215,0,.08),0 24px 80px rgba(0,0,0,.6);opacity:0;transition:opacity .25s ease,transform .25s ease;">
+    <div style="font-size:2.8rem;margin-bottom:8px;filter:drop-shadow(0 0 18px rgba(255,215,0,.5));">👑</div>
+    <div style="font-family:'Fraunces',serif;font-size:1.4rem;font-weight:900;color:#ffd700;margin-bottom:4px;">Master-Zugang</div>
+    <div style="font-size:.8rem;color:rgba(255,215,0,.5);margin-bottom:28px;letter-spacing:.04em;text-transform:uppercase;">Geheimen PIN eingeben</div>
+
+    <!-- PIN dots display -->
+    <div style="display:flex;justify-content:center;gap:12px;margin-bottom:28px;" id="pin-dots-wrap">
+        <div class="pin-dot" id="pin-dot-0"></div>
+        <div class="pin-dot" id="pin-dot-1"></div>
+        <div class="pin-dot" id="pin-dot-2"></div>
+        <div class="pin-dot" id="pin-dot-3"></div>
+        <div class="pin-dot" id="pin-dot-4"></div>
+        <div class="pin-dot" id="pin-dot-5"></div>
+        <div class="pin-dot" id="pin-dot-6"></div>
+        <div class="pin-dot" id="pin-dot-7"></div>
+    </div>
+
+    <!-- Numpad -->
+    <div class="pin-numpad" id="pin-numpad">
+        <button class="pin-key" onclick="pinPress('1')">1</button>
+        <button class="pin-key" onclick="pinPress('2')">2</button>
+        <button class="pin-key" onclick="pinPress('3')">3</button>
+        <button class="pin-key" onclick="pinPress('4')">4</button>
+        <button class="pin-key" onclick="pinPress('5')">5</button>
+        <button class="pin-key" onclick="pinPress('6')">6</button>
+        <button class="pin-key" onclick="pinPress('7')">7</button>
+        <button class="pin-key" onclick="pinPress('8')">8</button>
+        <button class="pin-key" onclick="pinPress('9')">9</button>
+        <button class="pin-key pin-key-clear" onclick="pinClear()">✕</button>
+        <button class="pin-key" onclick="pinPress('0')">0</button>
+        <button class="pin-key pin-key-del" onclick="pinDelete()">⌫</button>
+    </div>
+
+    <div id="pin-error" style="color:#ff6b6b;font-size:.78rem;margin-top:16px;min-height:20px;opacity:0;transition:opacity .2s;"></div>
+    <button onclick="closeMasterPin()" style="margin-top:16px;background:transparent;border:1px solid rgba(255,215,0,.2);border-radius:10px;color:rgba(255,215,0,.5);font-size:.78rem;padding:8px 20px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;">Abbrechen</button>
+</div>
+
+<!-- ── ЗАДАЧА 9: Master Confirm диалог ── -->
+<div id="master-confirm-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(10px);z-index:10015;"></div>
+<div id="master-confirm-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.94);z-index:10016;width:92%;max-width:420px;background:#0f0d14;border:1px solid rgba(255,215,0,.2);border-radius:18px;padding:32px 28px;text-align:center;box-shadow:0 0 60px rgba(0,0,0,.7);opacity:0;transition:opacity .22s ease,transform .22s ease;">
+    <div id="mc-title" style="font-family:'Fraunces',serif;font-size:1.2rem;font-weight:900;color:#ffd700;margin-bottom:12px;"></div>
+    <div id="mc-body" style="font-size:.85rem;color:rgba(255,215,0,.6);line-height:1.6;margin-bottom:24px;"></div>
+    <div style="display:flex;gap:10px;justify-content:center;">
+        <button onclick="closeMasterConfirm()" style="background:rgba(255,215,0,.07);border:1px solid rgba(255,215,0,.2);border-radius:10px;color:rgba(255,215,0,.6);font-size:.85rem;padding:10px 22px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;">Abbrechen</button>
+        <button id="mc-confirm-btn" class="master-confirm-btn danger" style="">Bestätigen</button>
+    </div>
+</div>
+
+<!-- ── ЗАДАЧА 15: Approbation Scan Viewer ── -->
+<div id="appro-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(10px);z-index:10020;" onclick="closeApproViewer()"></div>
+<div id="appro-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.95);z-index:10021;width:94%;max-width:720px;max-height:90vh;background:var(--card);border-radius:var(--r);overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.4);opacity:0;transition:opacity .22s,transform .22s;flex-direction:column;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0;">
+        <div>
+            <div style="font-family:'Fraunces',serif;font-size:1rem;font-weight:900;" id="appro-modal-title">Approbationsurkunde</div>
+            <div style="font-size:.75rem;color:var(--text-muted);" id="appro-modal-sub">—</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <a id="appro-download-btn" download="" href="" style="background:var(--primary);color:#fff;border:none;border-radius:9px;padding:7px 14px;font-size:.78rem;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:5px;">⬇️ Download</a>
+            <button onclick="closeApproViewer()" style="background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:7px 12px;cursor:pointer;font-size:.85rem;color:var(--text);">✕</button>
+        </div>
+    </div>
+    <div id="appro-modal-body" style="overflow-y:auto;padding:20px;flex:1;"></div>
+</div>
+
+<!-- EHR Modal -->
+<div id="ehr-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(44,27,105,.35);backdrop-filter:blur(4px);z-index:10000;" onclick="closeEHR()"></div>
+<div id="ehr-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:90%;max-width:520px;background:var(--card);padding:28px;border-radius:var(--r);box-shadow:0 20px 60px rgba(44,27,105,.25);z-index:10001;">
+    <h3 id="ehr-title" style="font-family:'Fraunces',serif;margin:0 0 12px;">Medizinische Akte</h3>
+    <div id="ehr-history-list" style="max-height:300px;overflow-y:auto;margin:15px 0;border-top:1px solid var(--border);"></div>
+    <button class="btn btn-main" onclick="closeEHR()">Schließen</button>
+</div>
+
+<!-- GDPR Banner -->
+<div id="gdpr-box" class="gdpr-pop">
+    <div class="wrap" style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
+        <p style="margin:0;font-size:.85rem;color:var(--text);flex:1;min-width:200px;">🍪 Daten werden ausschließlich lokal gespeichert.</p>
+        <button class="btn btn-main" style="width:auto;padding:8px 22px;margin:0;" onclick="acceptGDPR()">OK</button>
+    </div>
+</div>
+
+<div id="print-area"><div class="ticket-box" id="ticket-content"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="js/shared.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

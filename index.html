@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Einfach-Termin — Patienten</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=Fraunces:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- ЗАДАЧА 30: Praxis Direktlink redirect support -->
+    <script>
+    // Pfad-basierter Redirect: /petersen-niebull → index.html?praxis=petersen-niebull
+    // Funktioniert wenn Server 404 → index.html umleitet (Netlify, GitHub Pages, .htaccess)
+    (function() {
+        var path = window.location.pathname.replace(/^\//, '').replace(/\.html$/, '');
+        if (path && path !== 'index' && path !== '' && !path.includes('/')) {
+            var params = new URLSearchParams(window.location.search);
+            if (!params.get('praxis') && !params.get('p')) {
+                params.set('praxis', path);
+                window.history.replaceState({}, '', window.location.pathname.split('/').slice(0,-1).join('/') + '/index.html?' + params.toString());
+            }
+        }
+    })();
+    </script>
+    <style>
+    /* ── ЗАДАЧА 30: Praxis Landing Modal ──────────────────── */
+    .praxis-landing-box {
+        background: var(--card);
+        border-radius: var(--r);
+        box-shadow: 0 24px 80px rgba(44,27,105,.35);
+        width: 96%; max-width: 480px;
+        max-height: 92vh; overflow-y: auto;
+        display: flex; flex-direction: column;
+        animation: plSlideUp .3s ease;
+    }
+    @keyframes plSlideUp {
+        from { opacity:0; transform: translateY(24px); }
+        to   { opacity:1; transform: translateY(0); }
+    }
+    .pl-header {
+        display: flex; align-items: center; gap: 14px;
+        padding: 20px 20px 16px;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(135deg, var(--primary-light), var(--card));
+        position: relative;
+    }
+    .pl-logo {
+        font-size: 2.2rem; flex-shrink: 0;
+        width: 52px; height: 52px;
+        background: var(--card);
+        border-radius: 14px;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 2px 12px rgba(44,27,105,.12);
+    }
+    .pl-name {
+        font-family: 'Fraunces', serif;
+        font-size: 1.05rem; font-weight: 900;
+        color: var(--text); line-height: 1.2;
+    }
+    .pl-city { font-size:.75rem; color:var(--text-muted); margin-top:3px; }
+    .pl-close {
+        position: absolute; top: 14px; right: 14px;
+        background: var(--bg); border: 1px solid var(--border);
+        border-radius: 8px; width: 28px; height: 28px;
+        cursor: pointer; font-size: .82rem; color: var(--text);
+        display: flex; align-items: center; justify-content: center;
+    }
+    .pl-stats {
+        display: flex; gap: 0;
+        border-bottom: 1px solid var(--border);
+    }
+    .pl-stat {
+        flex: 1; padding: 12px 8px; text-align: center;
+        border-right: 1px solid var(--border);
+    }
+    .pl-stat:last-child { border-right: none; }
+    .pl-stat-num {
+        font-family: 'Fraunces', serif; font-size: 1.2rem;
+        font-weight: 900; color: var(--primary);
+    }
+    .pl-stat-lbl {
+        font-size: .65rem; color: var(--text-muted);
+        font-weight: 600; text-transform: uppercase;
+        letter-spacing: .04em; margin-top: 2px;
+    }
+    .pl-spec-tag {
+        font-size: .72rem; font-weight: 700;
+        padding: 3px 10px; border-radius: 999px;
+    }
+    .pl-actions {
+        padding: 16px 20px 20px;
+        display: flex; flex-direction: column;
+    }
+    .pl-guest-btn {
+        background: transparent; border: none;
+        font-size: .78rem; color: var(--text-muted);
+        cursor: pointer; text-align: center;
+        margin-top: 8px; padding: 6px;
+        font-family: 'DM Sans', sans-serif;
+        text-decoration: underline;
+        transition: color .15s;
+    }
+    .pl-guest-btn:hover { color: var(--primary); }
+    </style>
+</head>
+<body>
+
+<div id="toast-container"></div>
+
+<header>
+    <div class="wrap nav">
+        <a class="logo" onclick="location.reload()">Einfach<span>-Termin</span></a>
+        <div style="display:flex;align-items:center;gap:12px;">
+            <button class="btn-sm" onclick="toggleDark()" style="border-color:var(--primary);color:var(--primary);">🌓</button>
+            <div class="lang-switch">
+                <select id="lang-select" onchange="switchLang(this.value)">
+                    <option value="de">🇩🇪 DE</option>
+                    <option value="ru">🇷🇺 RU</option>
+                    <option value="en">🇬🇧 EN</option>
+                    <option value="tr">🇹🇷 TR</option>
+                </select>
+            </div>
+            <div id="nav-info"></div>
+        </div>
+    </div>
+</header>
+
+<main class="wrap">
+
+<!-- ═══ WELCOME ═══ -->
+<div id="page-welcome" class="page active">
+    <div style="text-align:center;padding:52px 0 24px;">
+        <div style="font-size:3rem;margin-bottom:12px;">🏥</div>
+        <h1 style="margin:0 0 8px;font-size:2rem;font-family:'Fraunces',serif;" id="txt-welcome">Willkommen bei Einfach-Termin</h1>
+        <p style="color:var(--text-muted);max-width:440px;margin:0 auto;font-size:1rem;" id="txt-sub">Ihre Gesundheitstermine — sicher und einfach verwalten.</p>
+        <div class="hero-cards">
+            <div class="hero-card hc-patient" onclick="showPage('page-login')">
+                <div class="hc-icon">👤</div>
+                <h2>Ich bin Patient</h2>
+                <p>Praxis suchen, Termin buchen &amp; verwalten</p>
+                <button class="btn btn-main" style="margin-top:16px;" id="txt-btn-login">Einloggen</button>
+            </div>
+            <div class="hero-card hc-praxis" onclick="window.location.href='admin.html'">
+                <div class="hc-icon">🏥</div>
+                <h2>Ich bin Praxis</h2>
+                <p>Team verwalten &amp; Terminanfragen bearbeiten</p>
+                <button class="btn btn-main" style="margin-top:16px;background:var(--success);">Praxis-Login →</button>
+            </div>
+        </div>
+        <div style="margin-top:20px;">
+            <button class="btn-text" onclick="showPage('page-reg-patient')" id="txt-btn-register">Noch kein Konto? Registrieren →</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ LOGIN ═══ -->
+<div id="page-login" class="page">
+    <div class="card" style="max-width:420px;margin:0 auto;">
+        <h2 style="margin:0 0 18px;font-family:'Fraunces',serif;">Anmelden</h2>
+        <div id="login-err" class="err"></div>
+        <label>E-Mail</label><input type="email" id="login-email" placeholder="ihre@email.de">
+        <label>Passwort</label><input type="password" id="login-pass" placeholder="••••••••">
+        <button class="btn btn-main" onclick="handleLogin()">Anmelden</button>
+        <div style="text-align:center;"><button class="btn-text" onclick="showPage('page-reg-patient')">Noch kein Konto? Registrieren</button></div>
+    </div>
+</div>
+
+<!-- ═══ REGISTER ═══ -->
+<div id="page-reg-patient" class="page">
+    <div class="card" style="max-width:580px;margin:0 auto;">
+        <h2 style="margin:0 0 18px;font-family:'Fraunces',serif;">Patienten-Registrierung</h2>
+        <div id="reg-err" class="err"></div>
+        <div class="g2">
+            <div><label>Vorname *</label><input type="text" id="r-fn" placeholder="Max"></div>
+            <div><label>Nachname *</label><input type="text" id="r-ln" placeholder="Mustermann"></div>
+        </div>
+        <label>E-Mail *</label><input type="email" id="r-em" placeholder="max@email.de">
+        <label>Telefonnummer</label><input type="tel" id="r-ph" placeholder="+49 ...">
+        <label>Krankenversicherung</label>
+        <select id="r-ins"><option value="public">Gesetzlich (GKV)</option><option value="private">Privat (PKV)</option></select>
+        <div class="g2">
+            <div>
+                <label>Passwort *</label>
+                <input type="password" id="r-pw" oninput="checkPwStrength(this.value,'r-pw-bar')" placeholder="mind. 8 Zeichen">
+                <div id="r-pw-bar" class="pw-strength" style="width:0%;background:#ddd;"></div>
+            </div>
+            <div><label>Bestätigen *</label><input type="password" id="r-pc"></div>
+        </div>
+        <div class="gdpr-box-reg">
+            <input type="checkbox" id="r-gdpr">
+            <label for="r-gdpr" style="font-weight:400;">Ich stimme der <a href="#" onclick="openDsgvo();return false;">Datenschutzerklärung</a> zu. Daten werden ausschließlich lokal gespeichert. *</label>
+        </div>
+        <button class="btn btn-main" onclick="handleRegister()">Konto erstellen</button>
+        <div style="text-align:center;"><button class="btn-text" onclick="showPage('page-login')">← Zurück zum Login</button></div>
+    </div>
+</div>
+
+<!-- ═══ PATIENT PANEL ═══ -->
+<div id="panel-patient" class="page">
+    <div style="margin-bottom:16px;">
+        <h1 style="margin:0 0 2px;font-family:'Fraunces',serif;">Mein Gesundheitskonto</h1>
+        <p style="color:var(--text-muted);margin:0;font-size:.9rem;">Übersicht &amp; Terminverwaltung</p>
+    </div>
+    <div id="next-visit-banner-wrap"></div>
+
+    <!-- Reminder Center (Nr.21) -->
+    <div id="reminder-center-wrap"></div>
+
+    <div class="g2">
+        <!-- LEFT -->
+        <div>
+            <div class="card">
+                <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+                    <div class="profile-avatar" id="p-avatar">MM</div>
+                    <div>
+                        <div style="font-weight:700;font-size:1.05rem;" id="p-profile-name">—</div>
+                        <div style="font-size:.82rem;color:var(--text-muted);">Patient</div>
+                    </div>
+                </div>
+                <div style="border-top:1px solid var(--border);padding-top:14px;display:flex;flex-direction:column;gap:9px;">
+                    <div style="display:flex;justify-content:space-between;font-size:.88rem;"><span style="color:var(--text-muted);">E-Mail</span><span style="font-weight:600;" id="p-profile-email">—</span></div>
+                    <div style="display:flex;justify-content:space-between;font-size:.88rem;"><span style="color:var(--text-muted);">Telefon</span><span style="font-weight:600;" id="p-profile-phone">—</span></div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:.88rem;"><span style="color:var(--text-muted);">Versicherung</span><span id="p-profile-ins">—</span></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div style="font-weight:700;font-size:.95rem;margin-bottom:12px;">📊 Gesundheits-Statistik</div>
+                <div class="g4" style="margin-bottom:14px;">
+                    <div class="stat-card" style="background:var(--primary-light);"><div class="stat-num" style="color:var(--primary);" id="hs-total">0</div><div class="stat-lbl">Gesamt</div></div>
+                    <div class="stat-card" style="background:var(--success-light);"><div class="stat-num" style="color:var(--success);" id="hs-confirmed">0</div><div class="stat-lbl">Bestätigt</div></div>
+                    <div class="stat-card" style="background:var(--warning-light);"><div class="stat-num" style="color:var(--warning);" id="hs-pending">0</div><div class="stat-lbl">Ausstehend</div></div>
+                    <div class="stat-card" style="background:var(--danger-light);"><div class="stat-num" style="color:var(--danger);" id="hs-cancelled">0</div><div class="stat-lbl">Abgesagt</div></div>
+                </div>
+                <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:5px;">Bestätigungsrate</div>
+                <div style="display:flex;align-items:center;gap:14px;">
+                    <div class="health-bar"><div class="health-bar-fill" id="hs-bar" style="width:0%;"></div></div>
+                    <span style="font-size:.85rem;font-weight:700;color:var(--primary);min-width:36px;text-align:right;" id="hs-pct">0%</span>
+                </div>
+                <div style="font-size:.8rem;color:var(--text-muted);margin:12px 0 5px;">Termine nach Wochentag</div>
+                <div class="week-bar-wrap">
+                    <div class="week-bar-col"><div class="week-bar" id="wb-1" style="height:4px;"></div><div class="week-bar-lbl">Mo</div></div>
+                    <div class="week-bar-col"><div class="week-bar" id="wb-2" style="height:4px;"></div><div class="week-bar-lbl">Di</div></div>
+                    <div class="week-bar-col"><div class="week-bar" id="wb-3" style="height:4px;"></div><div class="week-bar-lbl">Mi</div></div>
+                    <div class="week-bar-col"><div class="week-bar" id="wb-4" style="height:4px;"></div><div class="week-bar-lbl">Do</div></div>
+                    <div class="week-bar-col"><div class="week-bar" id="wb-5" style="height:4px;"></div><div class="week-bar-lbl">Fr</div></div>
+                    <div class="week-bar-col"><div class="week-bar" id="wb-6" style="height:4px;opacity:.35;"></div><div class="week-bar-lbl">Sa</div></div>
+                    <div class="week-bar-col"><div class="week-bar" id="wb-0" style="height:4px;opacity:.35;"></div><div class="week-bar-lbl">So</div></div>
+                </div>
+                <div style="font-size:.82rem;color:var(--text-muted);margin-top:8px;" id="hs-extra"></div>
+            </div>
+
+            <div class="card">
+                <div style="font-weight:700;font-size:.95rem;margin-bottom:14px;">⚙️ Profileinstellungen</div>
+                <label>Name ändern</label><input type="text" id="edit-name" placeholder="Neuer Name">
+                <label>Profilfarbe</label>
+                <div style="display:flex;gap:10px;margin:8px 0 12px;">
+                    <div class="color-opt" onclick="setAvatarColor('#7c5cbf',this)" style="background:#7c5cbf;width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;"></div>
+                    <div class="color-opt" onclick="setAvatarColor('#27ae60',this)" style="background:#27ae60;width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;"></div>
+                    <div class="color-opt" onclick="setAvatarColor('#967BB6',this)" style="background:#967BB6;width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;"></div>
+                    <div class="color-opt" onclick="setAvatarColor('#e67e22',this)" style="background:#e67e22;width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;"></div>
+                    <div class="color-opt" onclick="setAvatarColor('#34495e',this)" style="background:#34495e;width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;"></div>
+                </div>
+                <button class="btn btn-outline" onclick="updateProfile()">Profil speichern</button>
+                <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+                    <label>Altes Passwort</label><input type="password" id="old-pw" placeholder="••••••••">
+                    <label>Neues Passwort</label><input type="password" id="new-pw" placeholder="mind. 8 Zeichen">
+                    <button class="btn btn-danger" onclick="changePassword()">Passwort aktualisieren</button>
+                </div>
+                <button class="gdpr-dl-btn" onclick="downloadMyData()">📦 Meine Daten herunterladen (DSGVO)</button>
+                <button class="push-btn" id="push-btn" onclick="togglePushNotifications()">🔔 Push-Benachrichtigungen aktivieren</button>
+
+                <!-- Push-Einstellungen (Nr.20) -->
+                <div class="push-settings-wrap" id="push-settings-wrap" style="display:none;">
+                    <div class="push-settings-title">🔔 Benachrichtigungen bei:</div>
+                    <div class="push-toggle-row">
+                        <label for="push-on-confirm">✅ Terminbestätigung</label>
+                        <input type="checkbox" id="push-on-confirm" checked onchange="savePushToggles()">
+                    </div>
+                    <div class="push-toggle-row">
+                        <label for="push-on-cancel">❌ Absage durch Praxis</label>
+                        <input type="checkbox" id="push-on-cancel" checked onchange="savePushToggles()">
+                    </div>
+                    <div class="push-toggle-row">
+                        <label for="push-on-reminder">🔔 24h-Erinnerung</label>
+                        <input type="checkbox" id="push-on-reminder" checked onchange="savePushToggles()">
+                    </div>
+                    <div class="push-toggle-row">
+                        <label for="push-on-book">📝 Buchung eingegangen</label>
+                        <input type="checkbox" id="push-on-book" checked onchange="savePushToggles()">
+                    </div>
+                </div>
+
+                <!-- Push-Benachrichtigungs-Verlauf (Nr.20) -->
+                <div style="margin-top:10px;" id="push-history-wrap" style="display:none;">
+                    <div style="font-size:.72rem;font-weight:700;color:var(--text-muted);margin-bottom:6px;display:flex;justify-content:space-between;">
+                        <span>📬 Letzte Benachrichtigungen</span>
+                        <button onclick="clearPushHistory()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:.7rem;">🗑 Löschen</button>
+                    </div>
+                    <div id="push-history-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT -->
+        <div>
+            <div class="card">
+                <h3 style="margin:0 0 14px;font-family:'Fraunces',serif;">Termin buchen</h3>
+                <div class="smart-search-wrap">
+                    <span class="ss-icon">🔍</span>
+                    <input type="text" id="smart-search" placeholder="Praxis, Arzt, Stadt suchen…" oninput="smartSearch(this.value)" onblur="setTimeout(hideSSResults,200)" style="margin:0;">
+                    <div class="ss-results" id="ss-results"></div>
+                </div>
+                <div class="g2" style="gap:10px;margin-bottom:8px;">
+                    <div><label>Stadt</label><select id="filter-city" onchange="renderPraxisList()"></select></div>
+                    <div><label>Fachrichtung</label><select id="filter-spec" onchange="renderPraxisList()"></select></div>
+                </div>
+                <div id="praxis-list-wrap"></div>
+                <div id="doctor-selector-wrap" style="display:none;margin-top:8px;">
+                    <div class="section-label">Arzt wählen</div>
+                    <div id="doctor-chips-wrap"></div>
+                </div>
+                <div id="booking-form-wrap" style="display:none;">
+                    <label style="margin-top:10px;">Datum wählen (Mo–Fr)</label>
+                    <input type="date" id="book-date" onchange="checkDateAvailability(this);">
+                    <div id="reminder-container"></div>
+                    <label>Termintyp</label>
+                    <select id="in-appt-type">
+                        <option value="exam">🔵 Untersuchung</option>
+                        <option value="consult">🟣 Konsultation</option>
+                        <option value="procedure">🟤 Behandlung</option>
+                        <option value="operation">⚫ Operation</option>
+                    </select>
+                    <label>Grund des Besuchs</label>
+                    <input type="text" id="in-reason" placeholder="z.B. Routinekontrolle">
+                    <label>Dokument anhängen (Optional)</label>
+                    <div class="doc-upload-zone" id="doc-drop-zone" onclick="document.getElementById('doc-file-input').click()" ondragover="docDragOver(event)" ondragleave="docDragLeave(event)" ondrop="docDrop(event)">
+                        <div style="font-size:1.4rem;">📎</div>
+                        <p>Versicherungskarte, Überweisung<br><span style="color:var(--primary);font-weight:700;">Klicken oder Datei hierher ziehen</span></p>
+                    </div>
+                    <input type="file" id="doc-file-input" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" onchange="handleDocUpload(this)">
+                    <div class="doc-list" id="doc-list-preview"></div>
+                    <div id="slot-info-wrap" style="font-size:.75rem;color:var(--text-muted);margin-bottom:6px;"></div>
+                    <div id="spam-warn-wrap"></div>
+                    <div class="slot-grid" id="slot-grid"><span style="color:#aaa;font-size:.83rem;">Datum wählen</span></div>
+                    <button class="btn btn-main" id="book-btn" onclick="bookAppt()">Termin buchen</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin:0 0 6px;font-family:'Fraunces',serif;">Meine Termine</h3>
+                <div class="section-label">📅 Bevorstehend</div>
+                <div id="p-upcoming"></div>
+                <div class="section-label" style="margin-top:16px;">🕓 Vergangen / Abgesagt</div>
+                <div id="p-past"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</main>
+
+<!-- ═══ TICKET MODAL (Nr.14) ═══ -->
+<div class="ticket-modal-overlay" id="ticket-modal-overlay" onclick="if(event.target===this)closeTicketModal()">
+    <div class="ticket-modal-box" id="ticket-modal-box">
+        <div class="ticket-modal-header">
+            <h3>🎟️ Terminbestätigung</h3>
+            <button class="ticket-modal-close" onclick="closeTicketModal()">✕ Schließen</button>
+        </div>
+        <div class="ticket-modal-body">
+            <div id="ticket-modal-preview"></div>
+        </div>
+        <div class="ticket-modal-actions">
+            <button class="ticket-action-btn" onclick="ticketDoPrint()">
+                <span class="tab-icon">🖨️</span>Drucken
+            </button>
+            <button class="ticket-action-btn btn-pdf" onclick="ticketSavePDF()">
+                <span class="tab-icon">📄</span>Als PDF
+            </button>
+            <button class="ticket-action-btn btn-img" onclick="ticketSaveImage()">
+                <span class="tab-icon">🖼️</span>Als Bild
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ RECALL MODAL (Nr.15) ═══ -->
+<div class="recall-overlay" id="recall-overlay" onclick="if(event.target===this)closeRecall()">
+    <div class="recall-box">
+        <div class="recall-header">
+            <div class="recall-header-icon">🔄</div>
+            <div>
+                <h3>Wiedervorstellung</h3>
+                <p id="recall-subtitle">Nächsten Termin schnell buchen</p>
+            </div>
+        </div>
+        <div class="recall-body">
+            <div style="font-size:.82rem;color:var(--text-muted);margin-bottom:10px;">Termin in wie vielen Wochen?</div>
+            <div class="recall-weeks-grid" id="recall-weeks-grid">
+                <!-- Wird per JS befüllt -->
+            </div>
+            <div class="recall-date-preview" id="recall-date-preview">
+                📅 Bitte Zeitraum wählen…
+            </div>
+            <div id="recall-avail-info" style="font-size:.78rem;color:var(--text-muted);margin-top:-8px;margin-bottom:8px;"></div>
+        </div>
+        <div class="recall-footer">
+            <button class="recall-btn-cancel" onclick="closeRecall()">Abbrechen</button>
+            <button class="recall-btn-confirm" id="recall-confirm-btn" onclick="confirmRecall()" disabled>
+                📅 Termin anfragen
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- EHR Modal -->
+<div id="ehr-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(44,27,105,.35);backdrop-filter:blur(4px);z-index:10000;" onclick="closeEHR()"></div>
+<div id="ehr-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:90%;max-width:520px;background:var(--card);padding:28px;border-radius:var(--r);box-shadow:0 20px 60px rgba(44,27,105,.25);z-index:10001;">
+    <h3 id="ehr-title" style="font-family:'Fraunces',serif;margin:0 0 12px;">Medizinische Akte</h3>
+    <div id="ehr-history-list" style="max-height:300px;overflow-y:auto;margin:15px 0;border-top:1px solid var(--border);"></div>
+    <button class="btn btn-main" onclick="closeEHR()">Schließen</button>
+</div>
+
+<!-- GDPR Banner -->
+<div id="gdpr-box" class="gdpr-pop">
+    <div class="wrap" style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
+        <p style="margin:0;font-size:.85rem;color:var(--text);flex:1;min-width:200px;">🍪 Daten werden ausschließlich lokal gespeichert. <a href="#" onclick="openDsgvo();return false;" style="color:var(--primary);">Datenschutzerklärung</a></p>
+        <button class="btn btn-main" style="width:auto;padding:8px 22px;margin:0;" onclick="acceptGDPR()">Akzeptieren</button>
+    </div>
+</div>
+
+<!-- DSGVO Modal -->
+<div class="modal-overlay" id="dsgvo-modal" onclick="if(event.target===this)closeDsgvo()">
+    <div class="modal-box">
+        <h3>🔒 Datenschutzerklärung</h3>
+        <p><strong>Verantwortlicher:</strong> Einfach-Termin (Demo-Anwendung)</p>
+        <p>Alle Daten werden ausschließlich lokal in Ihrem Browser (localStorage) gespeichert. Keine Übertragung an externe Server.</p>
+        <p><strong>Ihre Rechte:</strong> Auskunft, Berichtigung und Löschung gemäß DSGVO Art. 15–17.</p>
+        <p style="font-size:.8rem;color:#aaa;">Stand: 2025 · Demo-Zwecke</p>
+        <button class="btn btn-main" onclick="closeDsgvo()">Verstanden &amp; Schließen</button>
+    </div>
+</div>
+
+<div id="print-area"><div class="ticket-box" id="ticket-content"></div></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SHARED CORE  — muss VOR dem page-script geladen werden
+     ══════════════════════════════════════════════════════════ -->
+<!-- html2canvas für Ticket-Bild-Export (Nr.14) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="js/shared.js"></script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE SCRIPT  — nur patientenspezifische Logik
+     (kein DB, kein saveAll, keine generateSlots — alles in shared.js)
+     ══════════════════════════════════════════════════════════ -->
+<script src="js/index.js"></script>
+</body>
+</html>

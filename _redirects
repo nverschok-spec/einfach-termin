@@ -1,0 +1,13 @@
+# Einfach-Termin — Netlify Redirects (Задача 30)
+# Прямые ссылки на прaxen: /petersen-niebull → /index.html?praxis=petersen-niebull
+
+# Известные slug-маршруты (добавлять по мере регистрации прaxen)
+/petersen-niebull       /index.html?praxis=petersen-niebull     200
+/gp-nordfriesland       /index.html?praxis=gp-nordfriesland     200
+/wattenblick-niebull    /index.html?praxis=wattenblick-niebull  200
+/allgemein-leck         /index.html?praxis=allgemein-leck        200
+/lecker-laecheln        /index.html?praxis=lecker-laecheln      200
+
+# Dynamischer Catch-All: jeder Slug der nicht existiert → index.html mit ?praxis=slug
+# WICHTIG: Muss als LETZTES stehen
+/:slug                  /index.html?praxis=:slug                200

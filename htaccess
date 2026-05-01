@@ -1,0 +1,16 @@
+# Einfach-Termin — Apache .htaccess (Задача 30)
+# Прямые ссылки: /petersen-niebull → /index.html?praxis=petersen-niebull
+
+RewriteEngine On
+
+# Статические файлы пропускать
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# admin.html не перезаписывать
+RewriteRule ^admin\.html$ - [L]
+
+# Slug → index.html?praxis=slug
+# Соответствует: /petersen-niebull, /meine-praxis, /zahnarzt-leck
+RewriteRule ^([a-z0-9][a-z0-9\-]{2,63})/?$ index.html?praxis=$1 [L,QSA]
